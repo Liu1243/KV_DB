@@ -52,8 +52,8 @@ func TestBTree_Delete(t *testing.T) {
 				lock: tt.fields.lock,
 			}
 
-			B.Put([]byte("test"), &data.LogRecord{1, 10})
-			B.Put(nil, &data.LogRecord{1, 20})
+			B.Put([]byte("test"), &data.LogRecordPos{1, 10})
+			B.Put(nil, &data.LogRecordPos{1, 20})
 
 			if got := B.Delete(tt.args.key); got != tt.want {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
@@ -74,7 +74,7 @@ func TestBTree_Get(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   *data.LogRecord
+		want   *data.LogRecordPos
 	}{
 		{
 			name: "test1",
@@ -85,7 +85,7 @@ func TestBTree_Get(t *testing.T) {
 			args: args{
 				key: []byte("test"),
 			},
-			want: &data.LogRecord{
+			want: &data.LogRecordPos{
 				Fid:    1,
 				Offset: 10,
 			},
@@ -99,7 +99,7 @@ func TestBTree_Get(t *testing.T) {
 			args: args{
 				key: nil,
 			},
-			want: &data.LogRecord{
+			want: &data.LogRecordPos{
 				Fid:    2,
 				Offset: 20,
 			},
@@ -113,8 +113,8 @@ func TestBTree_Get(t *testing.T) {
 			}
 
 			// 插入实例
-			B.Put([]byte("test"), &data.LogRecord{1, 10})
-			B.Put(nil, &data.LogRecord{2, 20})
+			B.Put([]byte("test"), &data.LogRecordPos{1, 10})
+			B.Put(nil, &data.LogRecordPos{2, 20})
 
 			if got := B.Get(tt.args.key); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Get() = %v, want %v", got, tt.want)
@@ -130,7 +130,7 @@ func TestBTree_Put(t *testing.T) {
 	}
 	type args struct {
 		key []byte
-		pos *data.LogRecord
+		pos *data.LogRecordPos
 	}
 	tests := []struct {
 		name   string
@@ -146,7 +146,7 @@ func TestBTree_Put(t *testing.T) {
 			},
 			args: args{
 				key: []byte("test"),
-				pos: &data.LogRecord{1, 100},
+				pos: &data.LogRecordPos{1, 100},
 			},
 			want: true,
 		},
@@ -158,7 +158,7 @@ func TestBTree_Put(t *testing.T) {
 			},
 			args: args{
 				key: nil,
-				pos: &data.LogRecord{1, 2},
+				pos: &data.LogRecordPos{1, 2},
 			},
 			want: true,
 		},
