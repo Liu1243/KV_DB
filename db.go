@@ -4,7 +4,6 @@ import (
 	"bitcask-go/data"
 	"bitcask-go/index"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,7 +13,7 @@ import (
 )
 
 type DB struct {
-	options    *Options
+	options    Options
 	mu         *sync.RWMutex
 	activeFile *data.DataFile            // 当前活跃数据文件，可以用于写入
 	olderFiles map[uint32]*data.DataFile // 旧的数据文件，只能用于读取
@@ -23,7 +22,7 @@ type DB struct {
 }
 
 // Open 打开数据库实例
-func Open(options *Options) (*DB, error) {
+func Open(options Options) (*DB, error) {
 	// 对用户传入的配置项进行校验
 	if err := checkOptions(options); err != nil {
 		return nil, err
@@ -36,6 +35,7 @@ func Open(options *Options) (*DB, error) {
 	}
 	// 初始化DB实例结构体
 	db := &DB{
+		options:    options,
 		olderFiles: make(map[uint32]*data.DataFile),
 		index:      index.NewIndexer(options.IndexType),
 		mu:         new(sync.RWMutex),
@@ -110,7 +110,7 @@ func (db *DB) loadIndexFromDataFiles() error {
 // loadDataFiles 从磁盘中加载数据文件
 func (db *DB) loadDataFiles() error {
 	// 遍历目录中所有文件，找到所有以.data结尾的数据文件
-	files, err := ioutil.ReadDir(db.options.DirPath)
+	files, err := os.ReadDir(db.options.DirPath)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (db *DB) loadDataFiles() error {
 	return nil
 }
 
-func checkOptions(options *Options) error {
+func checkOptions(options Options) error {
 	if options.DirPath == "" {
 		return ErrDirPathIsEmpty
 	}
@@ -288,7 +288,7 @@ func (db *DB) setActiveDataFile() error {
 
 func (db *DB) Get(key []byte) ([]byte, error) {
 	db.mu.RLock()
-	defer db.mu.Unlock()
+	defer db.mu.RUnlock()
 
 	// 判断Key的合法性
 	if len(key) == 0 {

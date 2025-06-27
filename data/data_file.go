@@ -93,7 +93,7 @@ func (df *DataFile) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 
 	logRecord := &LogRecord{Type: header.recordType}
 	// 读取用户实际存储的key value
-	if keySize > 0 && valueSize > 0 {
+	if keySize > 0 || valueSize > 0 {
 		kvBuf, err := df.readNBytes(keySize+valueSize, offset+headerSize)
 		if err != nil {
 			return nil, 0, err

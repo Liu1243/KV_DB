@@ -16,3 +16,10 @@ const (
 	// ART Adpative Radix Tree 自适应基数树索引
 	ART
 )
+
+var DefaultOptions = Options{
+	DirPath:      "./data",
+	DataFileSize: 1024 * 1024 * 1024, // 1G
+	SyncWrites:   false,
+	IndexType:    BTree,
+}
