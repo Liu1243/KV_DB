@@ -22,7 +22,6 @@ func TestBTree_Delete(t *testing.T) {
 		args   args
 		want   bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "test1",
 			fields: fields{
@@ -77,7 +76,6 @@ func TestBTree_Get(t *testing.T) {
 		args   args
 		want   *data.LogRecord
 	}{
-		// TODO: Add test cases.
 		{
 			name: "test1",
 			fields: fields{
@@ -140,7 +138,6 @@ func TestBTree_Put(t *testing.T) {
 		args   args
 		want   bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "test1",
 			fields: fields{
