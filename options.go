@@ -12,6 +12,14 @@ type IteratorOptions struct {
 	Reverse bool
 }
 
+// WriteBatchOptions 批量写配置
+type WriteBatchOptions struct {
+	// 一个batch可以写的做大数据量
+	MaxBatchNum uint
+	// 提交时是否sync持久化
+	SyncWrites bool
+}
+
 type IndexerType = int8
 
 const (
@@ -32,4 +40,9 @@ var DefaultOptions = Options{
 var DefaultIteratorOptions = IteratorOptions{
 	Prefix:  nil,
 	Reverse: false,
+}
+
+var DefaultWriteBatchOptions = WriteBatchOptions{
+	MaxBatchNum: 10000,
+	SyncWrites:  true,
 }
