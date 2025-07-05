@@ -54,6 +54,40 @@ func Open(options Options) (*DB, error) {
 	return db, nil
 }
 
+// Close 关闭数据库
+func (db *DB) Close() error {
+	if db.activeFile == nil {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// 关闭当前活跃文件
+	if err := db.activeFile.Close(); err != nil {
+		return err
+	}
+
+	// 关闭旧的数据文件
+	for _, dataFile := range db.olderFiles {
+		if err := dataFile.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Sync 持久化数据文件
+func (db *DB) Sync() error {
+	if db.activeFile == nil {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	return db.activeFile.Sync()
+}
+
 func (db *DB) loadIndexFromDataFiles() error {
 	// 如果没有文件id，说明数据库是空的，直接返回
 	if len(db.fileIds) == 0 {
@@ -195,7 +229,7 @@ func (db *DB) Delete(key []byte) error {
 
 	// 先检查key是否存在 不存在直接返回
 	if pos := db.index.Get(key); pos == nil {
-		return ErrKeyNotFound
+		return nil
 	}
 
 	// 构造LogRecord 标识该key被删除
@@ -302,6 +336,44 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 		return nil, ErrKeyNotFound
 	}
 
+	return db.getValueByPosition(logRecordPos)
+}
+
+// ListKeys 获取数据库中所有key
+func (db *DB) ListKeys() [][]byte {
+	iterator := db.index.Iterator(false)
+	keys := make([][]byte, db.index.Size())
+
+	var idx int
+	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+		keys[idx] = iterator.Key()
+		idx++
+	}
+
+	return keys
+}
+
+// Fold 获取所有数据，执行用户指定的fn，函数返回false时终止遍历
+func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	iterator := db.index.Iterator(false)
+	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+		key := iterator.Key()
+		value, err := db.getValueByPosition(iterator.Value())
+		if err != nil {
+			return err
+		}
+		if !fn(key, value) {
+			break
+		}
+	}
+
+	return nil
+}
+
+func (db *DB) getValueByPosition(logRecordPos *data.LogRecordPos) ([]byte, error) {
 	// 根据FileId找到对应的数据文件
 	var dataFile *data.DataFile
 	if db.activeFile.FileId == logRecordPos.Fid {

@@ -2,192 +2,91 @@ package index
 
 import (
 	"bitcask-go/data"
-	"github.com/google/btree"
-	"reflect"
-	"sync"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestBTree_Delete(t *testing.T) {
-	type fields struct {
-		tree *btree.BTree
-		lock *sync.RWMutex
-	}
-	type args struct {
-		key []byte
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
-	}{
-		{
-			name: "test1",
-			fields: fields{
-				tree: btree.New(2),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: []byte("test"),
-			},
-			want: true,
-		},
-		{
-			name: "test_nil",
-			fields: fields{
-				tree: btree.New(2),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: nil,
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			B := BTree{
-				tree: tt.fields.tree,
-				lock: tt.fields.lock,
-			}
+func TestBTree_Put(t *testing.T) {
+	bt := NewBTree()
 
-			B.Put([]byte("test"), &data.LogRecordPos{1, 10})
-			B.Put(nil, &data.LogRecordPos{1, 20})
+	res1 := bt.Put(nil, &data.LogRecordPos{Fid: 1, Offset: 100})
+	assert.True(t, res1)
 
-			if got := B.Delete(tt.args.key); got != tt.want {
-				t.Errorf("Delete() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	res2 := bt.Put([]byte("a"), &data.LogRecordPos{Fid: 1, Offset: 2})
+	assert.True(t, res2)
 }
 
 func TestBTree_Get(t *testing.T) {
-	type fields struct {
-		tree *btree.BTree
-		lock *sync.RWMutex
-	}
-	type args struct {
-		key []byte
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   *data.LogRecordPos
-	}{
-		{
-			name: "test1",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: []byte("test"),
-			},
-			want: &data.LogRecordPos{
-				Fid:    1,
-				Offset: 10,
-			},
-		},
-		{
-			name: "test_nil",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: nil,
-			},
-			want: &data.LogRecordPos{
-				Fid:    2,
-				Offset: 20,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			B := BTree{
-				tree: tt.fields.tree,
-				lock: tt.fields.lock,
-			}
+	bt := NewBTree()
 
-			// 插入实例
-			B.Put([]byte("test"), &data.LogRecordPos{1, 10})
-			B.Put(nil, &data.LogRecordPos{2, 20})
+	res1 := bt.Put(nil, &data.LogRecordPos{Fid: 1, Offset: 100})
+	assert.True(t, res1)
 
-			if got := B.Get(tt.args.key); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Get() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	pos1 := bt.Get(nil)
+	assert.Equal(t, uint32(1), pos1.Fid)
+	assert.Equal(t, int64(100), pos1.Offset)
+
+	res2 := bt.Put([]byte("a"), &data.LogRecordPos{Fid: 1, Offset: 2})
+	assert.True(t, res2)
+	res3 := bt.Put([]byte("a"), &data.LogRecordPos{Fid: 1, Offset: 3})
+	assert.True(t, res3)
+
+	pos2 := bt.Get([]byte("a"))
+	assert.Equal(t, uint32(1), pos2.Fid)
+	assert.Equal(t, int64(3), pos2.Offset)
 }
 
-func TestBTree_Put(t *testing.T) {
-	type fields struct {
-		tree *btree.BTree
-		lock *sync.RWMutex
-	}
-	type args struct {
-		key []byte
-		pos *data.LogRecordPos
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
-	}{
-		{
-			name: "test1",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: []byte("test"),
-				pos: &data.LogRecordPos{1, 100},
-			},
-			want: true,
-		},
-		{
-			name: "test_nil",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: nil,
-				pos: &data.LogRecordPos{1, 2},
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			B := BTree{
-				tree: tt.fields.tree,
-				lock: tt.fields.lock,
-			}
-			if got := B.Put(tt.args.key, tt.args.pos); got != tt.want {
-				t.Errorf("Put() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func TestBTree_Delete(t *testing.T) {
+	bt := NewBTree()
+	res1 := bt.Put(nil, &data.LogRecordPos{Fid: 1, Offset: 100})
+	assert.True(t, res1)
+	res2 := bt.Delete(nil)
+	assert.True(t, res2)
+
+	res3 := bt.Put([]byte("aaa"), &data.LogRecordPos{Fid: 22, Offset: 33})
+	assert.True(t, res3)
+	res4 := bt.Delete([]byte("aaa"))
+	assert.True(t, res4)
 }
 
-func Test_newBTree(t *testing.T) {
-	tests := []struct {
-		name string
-		want *BTree
-	}{
-		// TODO: Add test cases.
+func TestBTree_Iterator(t *testing.T) {
+	bt1 := NewBTree()
+	// 1.BTree 为空的情况
+	iter1 := bt1.Iterator(false)
+	assert.Equal(t, false, iter1.Valid())
+
+	//	2.BTree 有数据的情况
+	bt1.Put([]byte("ccde"), &data.LogRecordPos{Fid: 1, Offset: 10})
+	iter2 := bt1.Iterator(false)
+	assert.Equal(t, true, iter2.Valid())
+	assert.NotNil(t, iter2.Key())
+	assert.NotNil(t, iter2.Value())
+	iter2.Next()
+	assert.Equal(t, false, iter2.Valid())
+
+	// 3.有多条数据
+	bt1.Put([]byte("acee"), &data.LogRecordPos{Fid: 1, Offset: 10})
+	bt1.Put([]byte("eede"), &data.LogRecordPos{Fid: 1, Offset: 10})
+	bt1.Put([]byte("bbcd"), &data.LogRecordPos{Fid: 1, Offset: 10})
+	iter3 := bt1.Iterator(false)
+	for iter3.Rewind(); iter3.Valid(); iter3.Next() {
+		assert.NotNil(t, iter3.Key())
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewBTree(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("newBTree() = %v, want %v", got, tt.want)
-			}
-		})
+
+	iter4 := bt1.Iterator(true)
+	for iter4.Rewind(); iter4.Valid(); iter4.Next() {
+		assert.NotNil(t, iter4.Key())
+	}
+
+	// 4.测试 seek
+	iter5 := bt1.Iterator(false)
+	for iter5.Seek([]byte("cc")); iter5.Valid(); iter5.Next() {
+		assert.NotNil(t, iter5.Key())
+	}
+
+	// 5.反向遍历的 seek
+	iter6 := bt1.Iterator(true)
+	for iter6.Seek([]byte("zz")); iter6.Valid(); iter6.Next() {
+		assert.NotNil(t, iter6.Key())
 	}
 }
