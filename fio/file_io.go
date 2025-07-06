@@ -10,14 +10,6 @@ type FileIO struct {
 	fd *os.File
 }
 
-func (f *FileIO) Size() (int64, error) {
-	stat, err := f.fd.Stat()
-	if err != nil {
-		return 0, err
-	}
-	return stat.Size(), nil
-}
-
 func NewFileIOManager(fileName string) (*FileIO, error) {
 	fd, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, DataFilePerm)
 	if err != nil {
@@ -26,7 +18,15 @@ func NewFileIOManager(fileName string) (*FileIO, error) {
 	return &FileIO{fd: fd}, nil
 }
 
-func (f FileIO) Read(key []byte, offset int64) (int, error) {
+func (f *FileIO) Size() (int64, error) {
+	stat, err := f.fd.Stat()
+	if err != nil {
+		return 0, err
+	}
+	return stat.Size(), nil
+}
+
+func (f *FileIO) Read(key []byte, offset int64) (int, error) {
 	return f.fd.ReadAt(key, offset)
 }
 
@@ -48,10 +48,10 @@ func (f *FileIO) Write(data []byte) (int, error) {
 	return f.fd.Write(data)
 }
 
-func (f FileIO) Sync() error {
+func (f *FileIO) Sync() error {
 	return f.fd.Sync()
 }
 
-func (f FileIO) Close() error {
+func (f *FileIO) Close() error {
 	return f.fd.Close()
 }

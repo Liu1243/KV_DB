@@ -18,9 +18,9 @@ type Indexer interface {
 type IndexType = int8
 
 const (
-	// Btree索引
+	// Btree 二叉树索引
 	Btree IndexType = iota + 1
-	// ART自适应基数树索引
+	// ART 自适应基数树索引
 	ART
 )
 

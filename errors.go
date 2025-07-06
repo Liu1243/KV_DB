@@ -11,4 +11,5 @@ var (
 	ErrDataFileSizeInvalid    = errors.New("data file size must be greater than 0")
 	ErrDataDirectoryCorrupted = errors.New("data directory corrupted")
 	ErrMaxBatchNumExceeded    = errors.New("max batch num exceeded")
+	ErrMergeInProgress        = errors.New("merge in progress")
 )

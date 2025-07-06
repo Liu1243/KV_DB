@@ -20,6 +20,7 @@ type DB struct {
 	index      index.Indexer
 	fileIds    []int  // 文件id，只能在加载索引的时候使用
 	seqNo      uint64 // 事务序列号，全局递增
+	isMerge    bool   // 是否正在合并
 }
 
 // Open 打开数据库实例
@@ -42,8 +43,18 @@ func Open(options Options) (*DB, error) {
 		mu:         new(sync.RWMutex),
 	}
 
+	// 加载merge数据目录
+	if err := db.loadMergeFiles(); err != nil {
+		return nil, err
+	}
+
 	// 加载数据文件
 	if err := db.loadDataFiles(); err != nil {
+		return nil, err
+	}
+
+	// 从hint索引文件中加载索引
+	if err := db.loadIndexFromHintFile(); err != nil {
 		return nil, err
 	}
 
@@ -95,6 +106,18 @@ func (db *DB) loadIndexFromDataFiles() error {
 		return nil
 	}
 
+	// 判断是否发生过merge
+	hasMerge, nonMergeFileId := false, uint32(0)
+	mergeFinFileName := filepath.Join(db.options.DirPath, data.MergeFinishedFileName)
+	if _, err := os.Stat(mergeFinFileName); err == nil {
+		fid, err := db.getNonMergeFileId(db.options.DirPath)
+		if err != nil {
+			return err
+		}
+		hasMerge = true
+		nonMergeFileId = fid
+	}
+
 	updateIndex := func(key []byte, typ data.LogRecordType, pos *data.LogRecordPos) {
 		var ok bool
 		if typ == data.LogRecordDeleted {
@@ -114,6 +137,12 @@ func (db *DB) loadIndexFromDataFiles() error {
 	// 遍历所有文件id，处理文件中的记录
 	for _, fileId := range db.fileIds {
 		var fileId = uint32(fileId)
+
+		// 如果比最近未参与merge的fid更小，说明已经从hint文件中加载索引了
+		if hasMerge && fileId < nonMergeFileId {
+			continue
+		}
+
 		var dataFile *data.DataFile
 
 		if fileId == db.activeFile.FileId {
