@@ -28,13 +28,16 @@ const (
 
 	// ART Adpative Radix Tree 自适应基数树索引
 	ART
+
+	// BPlusTree B+树索引，将索引存储到磁盘上
+	BPlusTree
 )
 
 var DefaultOptions = Options{
 	DirPath:      "./data",
 	DataFileSize: 1024 * 1024 * 1024, // 1G
 	SyncWrites:   false,
-	IndexType:    BTree,
+	IndexType:    BPlusTree,
 }
 
 var DefaultIteratorOptions = IteratorOptions{

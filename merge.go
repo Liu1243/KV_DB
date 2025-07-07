@@ -152,10 +152,12 @@ func (db *DB) Merge() error {
 	return nil
 }
 
+// 在windows上会出错，filepath.Join(dir, base+mergeDirName)会拼接出./C:....这样的地址，而os.ReadDir读取这样的地址会报错
 func (db *DB) getMergePath() string {
-	dir := path.Dir(path.Clean(db.options.DirPath))
-	base := path.Base(path.Clean(db.options.DirPath))
-	return filepath.Join(dir, base+mergeDirName)
+	//dir := path.Dir(path.Clean(db.options.DirPath))
+	base := path.Base(db.options.DirPath)
+	//return filepath.Join(dir, base+mergeDirName)
+	return base + mergeDirName
 }
 
 // 加载merge数据目录
@@ -180,6 +182,9 @@ func (db *DB) loadMergeFiles() error {
 	for _, entry := range dirEntries {
 		if entry.Name() == data.MergeFinishedFileName {
 			mergeFinished = true
+		}
+		if entry.Name() == data.SeqNoFileName {
+			continue
 		}
 		mergeFileNames = append(mergeFileNames, entry.Name())
 	}

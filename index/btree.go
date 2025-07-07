@@ -65,6 +65,10 @@ func (B BTree) Iterator(reverse bool) Iterator {
 	return newBTreeIterator(B.tree, reverse)
 }
 
+func (B BTree) Close() error {
+	return nil
+}
+
 func newBTreeIterator(tree *btree.BTree, reverse bool) Iterator {
 	var idx int
 	values := make([]*Item, tree.Len())

@@ -13,6 +13,7 @@ type Indexer interface {
 	Delete(key []byte) bool
 	Size() int
 	Iterator(reverse bool) Iterator
+	Close() error
 }
 
 type IndexType = int8
@@ -22,15 +23,18 @@ const (
 	Btree IndexType = iota + 1
 	// ART 自适应基数树索引
 	ART
+	// BPTree BPTee B+ 树索引
+	BPTree
 )
 
-func NewIndexer(indexType IndexType) Indexer {
+func NewIndexer(indexType IndexType, dirPath string, syncWrites bool) Indexer {
 	switch indexType {
 	case Btree:
 		return NewBTree()
 	case ART:
-		// Todo
-		return nil
+		return NewART()
+	case BPTree:
+		return NewBPlusTree(dirPath, syncWrites)
 	default:
 		panic("index type not support")
 	}
