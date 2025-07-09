@@ -2,7 +2,10 @@ package bitcask_go
 
 import (
 	"bitcask-go/data"
+	"bitcask-go/fio"
 	"bitcask-go/index"
+	"fmt"
+	"github.com/gofrs/flock"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +15,10 @@ import (
 	"sync"
 )
 
-const seqNoKey = "seq.no"
+const (
+	seqNoKey     = "seq.no"
+	fileLockName = "flock"
+)
 
 type DB struct {
 	options         Options
@@ -20,11 +26,13 @@ type DB struct {
 	activeFile      *data.DataFile            // 当前活跃数据文件，可以用于写入
 	olderFiles      map[uint32]*data.DataFile // 旧的数据文件，只能用于读取
 	index           index.Indexer
-	fileIds         []int  // 文件id，只能在加载索引的时候使用
-	seqNo           uint64 // 事务序列号，全局递增
-	isMerge         bool   // 是否正在合并
-	seqNoFileExists bool   // 存储事务序列号的文件是否存在
-	isInitial       bool   // 是否是第一次初始化此数据目录
+	fileIds         []int        // 文件id，只能在加载索引的时候使用
+	seqNo           uint64       // 事务序列号，全局递增
+	isMerge         bool         // 是否正在合并
+	seqNoFileExists bool         // 存储事务序列号的文件是否存在
+	isInitial       bool         // 是否是第一次初始化此数据目录
+	fileLock        *flock.Flock // 文件锁保证多进程之间的互斥
+	bytesWrite      uint         // 累计写了多少字节
 }
 
 // Open 打开数据库实例
@@ -42,6 +50,16 @@ func Open(options Options) (*DB, error) {
 		}
 	}
 
+	// 判断当前数据目录是否正在使用
+	fileLock := flock.New(filepath.Join(options.DirPath, fileLockName))
+	hold, err := fileLock.TryLock()
+	if err != nil {
+		return nil, err
+	}
+	if !hold {
+		return nil, ErrDatabaseIsUsing
+	}
+
 	entries, err := os.ReadDir(options.DirPath)
 	if err != nil {
 		return nil, err
@@ -57,6 +75,7 @@ func Open(options Options) (*DB, error) {
 		index:      index.NewIndexer(options.IndexType, options.DirPath, options.SyncWrites),
 		mu:         new(sync.RWMutex),
 		isInitial:  isInitial,
+		fileLock:   fileLock,
 	}
 
 	// 加载merge数据目录
@@ -81,6 +100,13 @@ func Open(options Options) (*DB, error) {
 		}
 	}
 
+	// 重置IO类型为标准文件IO
+	if db.options.MMapAtStartup {
+		if err := db.resetIoType(); err != nil {
+			return nil, err
+		}
+	}
+
 	// 当索引结构为B+树时，需要取出当前事务序列号
 	if options.IndexType == BPlusTree {
 		if err := db.loadSeqNo(); err != nil {
@@ -100,6 +126,13 @@ func Open(options Options) (*DB, error) {
 
 // Close 关闭数据库
 func (db *DB) Close() error {
+	defer func() {
+		err := db.fileLock.Unlock()
+		if err != nil {
+			panic(fmt.Sprintf("fail to unlock the directory, %v", err))
+		}
+	}()
+
 	if db.activeFile == nil {
 		return nil
 	}
@@ -290,7 +323,11 @@ func (db *DB) loadDataFiles() error {
 
 	// 遍历每个文件id，打开对应的数据文件
 	for i, fileId := range fileIds {
-		dataFile, err := data.OpenDataFile(db.options.DirPath, uint32(fileId))
+		ioType := fio.StandardFIO
+		if db.options.MMapAtStartup {
+			ioType = fio.MemoryMap
+		}
+		dataFile, err := data.OpenDataFile(db.options.DirPath, uint32(fileId), ioType)
 		if err != nil {
 			return err
 		}
@@ -412,10 +449,20 @@ func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordPos, er
 		return nil, err
 	}
 
+	db.bytesWrite += uint(size)
 	// 根据用户配置决定是否需要持久化
-	if db.options.SyncWrites {
+	var needSync = db.options.SyncWrites
+	if !needSync && db.options.BytesPerSync > 0 && db.bytesWrite >= db.options.BytesPerSync {
+		needSync = true
+	}
+
+	if needSync {
 		if err := db.activeFile.Sync(); err != nil {
 			return nil, err
+		}
+		// 清空累计值
+		if db.bytesWrite > 0 {
+			db.bytesWrite = 0
 		}
 	}
 
@@ -436,7 +483,7 @@ func (db *DB) setActiveDataFile() error {
 	}
 
 	// 打开新的数据文件
-	dataFile, err := data.OpenDataFile(db.options.DirPath, initialFileId)
+	dataFile, err := data.OpenDataFile(db.options.DirPath, initialFileId, fio.StandardFIO)
 	if err != nil {
 		return err
 	}
@@ -544,5 +591,22 @@ func (db *DB) loadSeqNo() error {
 
 	// 同样的 在windows下 os.remove会panic
 	//return os.Remove(fileName)
+	return nil
+}
+
+func (db *DB) resetIoType() error {
+	if db.activeFile == nil {
+		return nil
+	}
+
+	if err := db.activeFile.SetIOManager(db.options.DirPath, fio.StandardFIO); err != nil {
+		return err
+	}
+
+	for _, dataFile := range db.olderFiles {
+		if err := dataFile.SetIOManager(db.options.DirPath, fio.StandardFIO); err != nil {
+			return err
+		}
+	}
 	return nil
 }
