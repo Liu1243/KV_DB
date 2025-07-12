@@ -221,6 +221,14 @@ func (db *DB) Stat() *Stat {
 	}
 }
 
+// Backup 备份数据库 将数据文件拷贝到新的目录中
+func (db *DB) Backup(dir string) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return utils.CopyDir(db.options.DirPath, dir, []string{fileLockName})
+}
+
 func (db *DB) loadIndexFromDataFiles() error {
 	// 如果没有文件id，说明数据库是空的，直接返回
 	if len(db.fileIds) == 0 {
