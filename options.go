@@ -1,12 +1,13 @@
 package bitcask_go
 
 type Options struct {
-	DirPath       string
-	DataFileSize  int64       //数据文件大小
-	SyncWrites    bool        // 每次写数据是否持久化
-	BytesPerSync  uint        // 累计写到多少字节后进行持久化
-	IndexType     IndexerType // 索引类型
-	MMapAtStartup bool        // 启动时是否使用MMap加载数据
+	DirPath            string
+	DataFileSize       int64       //数据文件大小
+	SyncWrites         bool        // 每次写数据是否持久化
+	BytesPerSync       uint        // 累计写到多少字节后进行持久化
+	IndexType          IndexerType // 索引类型
+	MMapAtStartup      bool        // 启动时是否使用MMap加载数据
+	DataFileMergeRatio float32     // 数据文件合并的阈值
 }
 
 type IteratorOptions struct {
@@ -36,12 +37,13 @@ const (
 )
 
 var DefaultOptions = Options{
-	DirPath:       "./data",
-	DataFileSize:  1024 * 1024 * 1024, // 1G
-	SyncWrites:    false,
-	IndexType:     BTree,
-	BytesPerSync:  0,
-	MMapAtStartup: true,
+	DirPath:            "./data",
+	DataFileSize:       1024 * 1024 * 1024, // 1G
+	SyncWrites:         false,
+	IndexType:          BTree,
+	BytesPerSync:       0,
+	MMapAtStartup:      true,
+	DataFileMergeRatio: 0.5,
 }
 
 var DefaultIteratorOptions = IteratorOptions{
